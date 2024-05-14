@@ -1,0 +1,11 @@
+#vscode
+.idea/
+.vscode/
+
+# test data and logs
+data/
+log/
+
+# Python artifacts
+__pycache__/
+*.zip
