@@ -9,6 +9,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt 
+from torch.profiler import profile, record_function, ProfilerActivity
 from test_datasets import *
 
 logging.basicConfig(filename="data/log_"+ time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime()) + ".log",
@@ -33,7 +34,7 @@ logger.info(f"Using device: {device}")
 dataset_preprocess = {"raw":lambda x:x,
                       "preload":PreloadDataSet,
                       "tensorclass":lambda dataset:FashionMNISTData.from_dataset(dataset, device=device),
-                      #"memmap":MemmappedDataSet
+                      "memmap":MemmappedDataSet
                       }
 dl_types = dataset_preprocess.keys()
 
@@ -143,7 +144,7 @@ def test_tc(dataloader, model, loss_fn):
 
 def cmp_tensorclass_demo(raw_dataset:Dataset, shuffle:bool):
     batch_size = 64
-    epochs = 5
+    epochs = 1
 
     loss_fn = nn.CrossEntropyLoss()
 
@@ -158,15 +159,28 @@ def cmp_tensorclass_demo(raw_dataset:Dataset, shuffle:bool):
 
         model = Net().to(device)
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
-        t0 = time.time()
-        for t in range(epochs):
-            logger.debug(f"Epoch {t + 1}\n-------------------------")
-            if preprocess_type == "tensorclass":
-                collate_fn=lambda x: x
-                train_tc(dataloader, model, loss_fn, optimizer)
-            else:
-                train(dataloader, model, loss_fn, optimizer)
-        logger.info(f"{preprocess_type.capitalize()} training done! time: {time.time() - t0: 4.4f} s")
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    #on_trace_ready=torch.profiler.tensorboard_trace_handler(f'./log/{preprocess_type}'),
+                    record_shapes=False,
+                    profile_memory=False,
+                    with_stack=True,
+                    #experimental_config=torch._C._profiler._ExperimentalConfig(verbose=True)
+                    ) as prof:
+            with record_function(f"{preprocess_type} dataset train {epochs} epochs"):
+                t0 = time.time()
+                for t in range(epochs):
+                    logger.debug(f"Epoch {t + 1}\n-------------------------")
+                    if preprocess_type == "tensorclass":
+                        collate_fn=lambda x: x
+                        train_tc(dataloader, model, loss_fn, optimizer)
+                    else:
+                        train(dataloader, model, loss_fn, optimizer)
+                logger.info(f"{preprocess_type.capitalize()} training done! time: {time.time() - t0: 4.4f} s")
+        logger.info(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
+        #logger.info(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
+        prof.export_chrome_trace(f"data/{preprocess_type}_trace.json")
+        #prof.export_stacks(f"data/{preprocess_type}_cuda_profiler_stacks.txt", "self_cpu_time_total")
+        #prof.export_stacks(f"data/{preprocess_type}_cpu_profiler_stacks.txt", "self_cuda_time_total")
 
 def cmp_tranverse_time_for_batch(raw_dataset:Dataset, shuffle:bool):
     epochs = 1
@@ -214,16 +228,36 @@ def cmp_tranverse_time_for_epoch(raw_dataset:Dataset, shuffle:bool):
     plt.legend(["raw","preload","tc"])
     plt.show()
 
+# tested: profiler stack trace not work with gpu in Win10
+def test_cuda_trace_enable():
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/test'),
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True) as prof:
+        with record_function(f"test"):
+            model = Net().to(device)
+
+def trace_stack_tensorclass_preload(raw_dataset:Dataset):
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                record_shapes=False,
+                profile_memory=False,
+                with_stack=True,
+                ) as prof:
+        with record_function(f"Preload dataset as tensorclass"):
+            FashionMNISTData.from_dataset(raw_dataset, device=device)
+    prof.export_chrome_trace(f"data/tensorclass_preload.json")
+
 if __name__ == "__main__":
     raw_training_data = datasets.FashionMNIST(
         root="data",
         train=True,
-        download=False,
+        download=True,
         transform=ToTensor(),
     )
     logger.info(f"dataset len {len(raw_training_data)}")
+    #trace_stack_tensorclass_preload(raw_training_data)
     cmp_tensorclass_demo(raw_training_data, shuffle=True)
     #cmp_tensorclass_demo(raw_training_data, shuffle=False)
     #cmp_tranverse_time_for_batch(raw_training_data, shuffle=True)
-
 logging.shutdown()
