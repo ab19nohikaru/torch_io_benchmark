@@ -41,7 +41,7 @@ class Trainer:
                 source = source.to(self.gpu_id)
                 targets = targets.to(self.gpu_id)
             self._run_batch(source, targets)
-        logger.info(f"[GPU{self.gpu_id}] Epoch {epoch} | Batchsize: {b_sz} | Steps: {len(self.train_data)} |"
+        logger.info(f"[GPU{self.gpu_id}] {self.dataloader_type} | Epoch {epoch} | Batchsize: {b_sz} | Steps: {len(self.train_data)} |"
                     f"Time: {time.time() - t0: 4.4f} s")
 
     def train(self, max_epochs: int):

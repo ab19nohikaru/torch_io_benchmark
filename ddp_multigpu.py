@@ -38,7 +38,7 @@ class DDPTrainer(Trainer):
         self.model = DDP(self.model, device_ids=[self.local_rank])
 
     def _run_epoch(self, epoch):
-        logger.info(f"[GPU{self.local_rank}:{self.global_rank}] Epoch {epoch} Start")
+        logger.info(f"[GPU{self.local_rank}:{self.global_rank}] {self.dataloader_type} | Epoch {epoch} Start")
         self.train_data.sampler.set_epoch(epoch)
         super()._run_epoch(epoch)
 
@@ -79,6 +79,7 @@ def main(total_epochs: int, batch_size: int):
     for preprocess_type in dl_types:
         dataloader = prepare_dataloader(raw_dataset, batch_size, preprocess_type)
         trainer = DDPTrainer(model, dataloader, optimizer, preprocess_type)
+        logger.info(f"{preprocess_type} Start Train")
         trainer.train(total_epochs)
     destroy_process_group()
 
