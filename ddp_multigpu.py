@@ -13,6 +13,8 @@ from mytrainer import Trainer, ToyNet
 
 log_timestr = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
 
+if not os.path.exists("log"):
+    os.makedirs("log")
 logging.basicConfig(handlers=(logging.FileHandler(filename="log/ddp_"+ log_timestr + ".log"),
                               ),
                     level=logging.INFO)

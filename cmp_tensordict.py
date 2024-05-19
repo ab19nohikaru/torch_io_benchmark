@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from torch.profiler import profile, record_function, ProfilerActivity
 from datasets_preprocess import *
 
+if not os.path.exists("data"):
+    os.makedirs("data")
 logging.basicConfig(filename="data/log_"+ time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime()) + ".log",
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
