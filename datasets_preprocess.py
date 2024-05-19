@@ -19,7 +19,7 @@ class PreloadDataSet(Dataset):
         t0 = time.time()
         for i in range(len(raw_dataset)):
             self.data.append(raw_dataset[i])
-        logger.info(f"DataSet preload done! time: {time.time() - t0: 4.4f} s")
+        logger.info(f"DataSet preload into memory done! time: {time.time() - t0: 4.4f} s")
 
     def __len__(self):
         return len(self.data)
@@ -52,7 +52,7 @@ class MemmappedDataSet(Dataset):
         return torch.from_numpy(data_fp), target_fp[0]
 
 @tensorclass
-class FashionMNISTData:
+class ImageData:
     images: torch.Tensor
     targets: torch.Tensor
 
@@ -86,8 +86,12 @@ class MyDataSet(Dataset):
             print("index:0")
         return self.data[index], self.targets[index]
 
-def my_collate(data):
-    print(len(data), type(data), data[0].shape)
+# various dataset preprocessing method
+dataset_preprocess_dict = {"raw":lambda x:x,
+                      "preload":PreloadDataSet,
+                      "tensorclass":lambda dataset:ImageData.from_dataset(dataset),
+                      "memmap":MemmappedDataSet
+                      }
 
 if __name__ == "__main__":
     pass

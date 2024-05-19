@@ -1,19 +1,56 @@
-# Project
-PyTorch DataLoader和TorchDict的IO性能评价
+# 单机单卡
 
-## Introduction
-在分布式机器学习训练中，如何保持高效的训练数据读取是一项非常重要的课题。`PyTorch`提供了`DataLoader`来解决这个问题，但是我们在使用过程中总会觉得并不是那么高效。`TensorDict`则是给出了一个`tensorclass`的解决方案，并且看上去很promising。那么，事实真的如此吗？
+```python
+python singlegpu.py 5 gpu
+```
 
-## Objective
-设计实验，比较`DataLoader`和`tensorclass`的性能，并进行分析。如无单机多卡的实验环境，可先实现单机单卡，然后联系[zhanghan](maito:zhanghan@higgsasset.com)安排多卡环境测试。
+会在log目录下生成log, 若使用--with_profiler --export_json 会在data目录下生成json文件
 
-## Evaluation
-- 完成benchmark设计并能获得基础的测试结果
-- 对测试结果进行简单分析
-- 实现多机多卡加分
-- 规范使用`git`，规范使用`README`、`CHANGELOG`、`.gitignore`和`License`
-- 代码条理清晰，且符合`PEP 8`规范
+```she
+usage: singlegpu.py [-h] [--batch_size BATCH_SIZE] [--with_profiler] [--export_json] total_epochs {cpu,gpu}
 
-## Related Works
-- [TorchDict Tutorial](https://pytorch.org/tensordict/tutorials/tensordict_memory.html)
-- [PyTorch/TorchDict Intergration](https://github.com/pytorch/pytorch/pull/112441)
+Benchmark IO for single GPU
+
+positional arguments:
+  total_epochs          Total epochs to train the model
+  {cpu,gpu}             use CPU or single GPU to train
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --batch_size BATCH_SIZE
+                        Input batch size on each device (default: 64)
+  --with_profiler       Use torch.profile to get a verbose output
+  --export_json         Export result by export_chrome_trace method
+
+example:
+python singlegpu.py 1 gpu
+```
+
+
+
+# 多机多卡(DDP)
+
+单卡版本的简单移植，使用[torchrun](https://pytorch.org/docs/stable/elastic/run.html)启动,，可参考[源码](https://github.com/pytorch/pytorch/blob/main/torch/distributed/run.py)
+
+## 单机多卡
+
+```
+torchrun
+    --standalone
+    --nnodes=1
+    --nproc-per-node=$NUM_TRAINERS
+    ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs
+```
+
+## 多机多卡
+
+```
+torchrun
+    --nnodes=$NUM_NODES
+    --nproc-per-node=$NUM_TRAINERS
+    --rdzv-id=$JOB_ID
+    --rdzv-backend=c10d
+    --rdzv-endpoint=$HOST_NODE_ADDR
+    ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs
+```
+

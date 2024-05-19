@@ -32,16 +32,15 @@
 
 |               | 不做处理  | 预载入内存 | 使用tensorclass构造 | numpy.memmap |
 | ------------- | --------- | ---------- | ------------------- | ------------ |
-| training time | 17.878 s  | 3.527 s    | 3.411 s             | 39.173 s     |
-| CPU time      | 14.319 s  | 294.073 ms | 967.312 ms          | 35.039 s     |
-| CPU Mem       | 179.90 Mb | 179.90 Mb  | 0 b                 | 179.90 Mb    |
-| CUDA Mem      | 0 b       | 0 b        | 179.90 Mb           | 0 b          |
+| training time | 19.005 s  | 3.833 s    | 4.212 s             | 40.495 s     |
+| CPU time      | 15.489 s  | 346.387 ms | 475.061 ms          | 36.069 s     |
+| CPU Mem       | 180.09 Mb | 180.09 Mb  | 180.09 Mb           | 180.09 Mb    |
+| CUDA Mem      | 0 b       | 0 b        | 0 b                 | 0 b          |
 
 <font color=red>由于Windows版本torch.profiler的strack_trace对GPU不生效[Issue 93855](https://github.com/pytorch/pytorch/issues/93855), 未对GPU耗时情况分析</font>
 
 **利用strack_trace对tensorclass的优势来源进行分析**:
 
-1. 从内存/显存占用可以看出，tensorclass直接将数据加载进显存中 ，减少了cpu到gpu的开销
-2. 除了tensorclass外的三种情况，对于batch中的每条数据都要调用\__getitem__去获取单条数据，不做处理和numpy.memmap每次都进行系统调用**open**，开销很大
-3. tensorclass可以单次获取整个batch，不需要多次调用\__getitem__再将数据整合
+1. 不做处理和numpy.memmap每次都进行系统调用**open**，开销很大，而 tensorclass 能不调用**open**直接拷贝
+2. 除了tensorclass外的三种情况，对于batch中的每条数据都要调用\_\_getitem\_\_去获取单条数据，tensorclass可以单次获取整个batch，不需要多次调用\_\_getitem\_\_再将数据整合
 

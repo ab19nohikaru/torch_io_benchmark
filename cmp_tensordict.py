@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt 
 from torch.profiler import profile, record_function, ProfilerActivity
-from test_datasets import *
+from datasets_preprocess import *
 
 logging.basicConfig(filename="data/log_"+ time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime()) + ".log",
                     level=logging.INFO)
@@ -30,13 +30,8 @@ logger.info(f"Available cpus: {os.cpu_count()}")
 logger.info(f"Available devices: {get_available_devices()}")
 logger.info(f"Using device: {device}")
 
-# various dataset preprocessing method
-dataset_preprocess = {"raw":lambda x:x,
-                      "preload":PreloadDataSet,
-                      "tensorclass":lambda dataset:FashionMNISTData.from_dataset(dataset, device=device),
-                      "memmap":MemmappedDataSet
-                      }
-dl_types = dataset_preprocess.keys()
+
+dl_types = dataset_preprocess_dict.keys()
 
 class Net(nn.Module):
     def __init__(self):
@@ -85,7 +80,7 @@ def train_tc(dataloader, model, loss_fn, optimizer):
     model.train()
 
     for batch, data in enumerate(dataloader):
-        X, y = data.images.contiguous(), data.targets.contiguous()
+        X, y = data.images.contiguous().to(device), data.targets.contiguous().to(device)
 
         pred = model(X)
         loss = loss_fn(pred, y)
@@ -127,7 +122,7 @@ def test_tc(dataloader, model, loss_fn):
     test_loss, correct = 0, 0
     with torch.no_grad():
         for batch in dataloader:
-            X, y = batch.images.contiguous(), batch.targets.contiguous()
+            X, y = batch.images.contiguous().to(device), batch.targets.contiguous().to(device)
 
             pred = model(X)
 
@@ -153,7 +148,7 @@ def cmp_tensorclass_demo(raw_dataset:Dataset, shuffle:bool):
             collate_fn=lambda x: x
         else:
             collate_fn = None
-        training_data = dataset_preprocess[preprocess_type](raw_dataset)
+        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset)
         dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
         logger.info(f"{preprocess_type.capitalize()} dataloader {'random' if shuffle else 'sequential'} tranverse! time: {tranverse_dataloader(dataloader, epochs): 4.4f} s")
 
@@ -178,7 +173,7 @@ def cmp_tensorclass_demo(raw_dataset:Dataset, shuffle:bool):
                 logger.info(f"{preprocess_type.capitalize()} training done! time: {time.time() - t0: 4.4f} s")
         logger.info(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
         #logger.info(prof.key_averages().table(sort_by="cuda_time_total", row_limit=20))
-        prof.export_chrome_trace(f"data/{preprocess_type}_trace.json")
+        #prof.export_chrome_trace(f"data/{preprocess_type}_trace.json")
         #prof.export_stacks(f"data/{preprocess_type}_cuda_profiler_stacks.txt", "self_cpu_time_total")
         #prof.export_stacks(f"data/{preprocess_type}_cpu_profiler_stacks.txt", "self_cuda_time_total")
 
@@ -193,7 +188,7 @@ def cmp_tranverse_time_for_batch(raw_dataset:Dataset, shuffle:bool):
             collate_fn=lambda x: x
         else:
             collate_fn = None
-        training_data = dataset_preprocess[preprocess_type](raw_dataset)
+        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset)
         for bs_index, batch_size in enumerate(batch_range):
             dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
             tranverse_time[bs_index, dl_index] = tranverse_dataloader(dataloader, epochs)
@@ -218,7 +213,7 @@ def cmp_tranverse_time_for_epoch(raw_dataset:Dataset, shuffle:bool):
             collate_fn=lambda x: x
         else:
             collate_fn = None
-        training_data = dataset_preprocess[preprocess_type](raw_dataset)
+        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset)
         dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
         for ep_index, _ in enumerate(epochs_range):
             tranverse_time[ep_index, dl_index] = tranverse_dataloader(dataloader, 1)
@@ -245,7 +240,7 @@ def trace_stack_tensorclass_preload(raw_dataset:Dataset):
                 with_stack=True,
                 ) as prof:
         with record_function(f"Preload dataset as tensorclass"):
-            FashionMNISTData.from_dataset(raw_dataset, device=device)
+            ImageData.from_dataset(raw_dataset, device=device)
     prof.export_chrome_trace(f"data/tensorclass_preload.json")
 
 if __name__ == "__main__":
