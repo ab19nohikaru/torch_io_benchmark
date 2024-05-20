@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Benchmark IO for single GPU')
     parser.add_argument('total_epochs', type=int, help='Total epochs to train the model')
     parser.add_argument('device', choices=["cpu", "gpu"], help='use CPU or single GPU to train')
+    parser.add_argument('--path', required=True, type=str, help='Path of dataset')
     parser.add_argument('--batch_size', default=64, type=int, help='Input batch size on each device (default: 64)')
     parser.add_argument('--with_profiler', action="store_true", help='Use torch.profile to get a verbose output')
     parser.add_argument('--export_json', action="store_true", help='Export result by export_chrome_trace method')
@@ -87,12 +88,12 @@ if __name__ == "__main__":
         device = "cpu"
     logger.info(f"Using device: {device}")
     raw_training_data = datasets.FashionMNIST(
-        root="data",
+        root=args.path,
         train=True,
-        download=True,
+        download=False,
         transform=ToTensor(),
     )
-    logger.info(f"dataset len {len(raw_training_data)}")
+    logger.info(f"loading dataset from {args.path} len {len(raw_training_data)}")
 
     test_tensorclass_singlegpu(raw_training_data, True, args.batch_size,
                             args.total_epochs, device, args.with_profiler,

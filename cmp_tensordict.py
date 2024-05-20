@@ -249,7 +249,7 @@ if __name__ == "__main__":
     raw_training_data = datasets.FashionMNIST(
         root="data",
         train=True,
-        download=True,
+        download=False,
         transform=ToTensor(),
     )
     logger.info(f"dataset len {len(raw_training_data)}")

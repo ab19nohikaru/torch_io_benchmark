@@ -16,3 +16,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 1. 修正之前tensorclass构造时直接拷进gpu的问题，更正相关conclusion
 2. 废弃单机单卡demo cmp_tensordict.py，重构为 singlegpu.py
 3. 完成多机多卡的简单移植 ddp_multigpu.py
+
+## [v0.0.4] - 2024-5-20
+
+将dataset download与training拆分。使用dataset_download.py脚本下载dataset到指定路径，training脚本运行时需要指定dataset路径。
+

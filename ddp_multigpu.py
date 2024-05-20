@@ -45,11 +45,11 @@ class DDPTrainer(Trainer):
         super()._run_epoch(epoch)
 
 
-def load_train_objs():
+def load_train_objs(path: str):
     train_set = datasets.FashionMNIST(
-        root="data",
+        root=path,
         train=True,
-        download=True,
+        download=False,
         transform=ToTensor(),
     )
     model = ToyNet()
@@ -73,9 +73,9 @@ def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str):
     )
 
 
-def main(total_epochs: int, batch_size: int):
+def main(total_epochs: int, batch_size: int, path: str):
     ddp_setup()
-    raw_dataset, model, optimizer = load_train_objs()
+    raw_dataset, model, optimizer = load_train_objs(path)
     dl_types = dataset_preprocess_dict.keys()
 
     for preprocess_type in dl_types:
@@ -91,6 +91,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='simple distributed training job')
     parser.add_argument('total_epochs', type=int, help='Total epochs to train the model')
     parser.add_argument('--batch_size', default=64, type=int, help='Input batch size on each device (default: 32)')
+    parser.add_argument('--path', required=True, type=str, help='Path of dataset')
     args = parser.parse_args()
-    
-    main(args.total_epochs, args.batch_size)
+
+    main(args.total_epochs, args.batch_size, args.path)

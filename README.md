@@ -1,13 +1,21 @@
+# 数据集下载
+
+执行训练任务前需要执行下列指令，下载数据集到指定路径
+
+```
+python dataset_download.py --path PATH
+```
+
 # 单机单卡
 
 ```python
-python singlegpu.py 5 gpu
+python singlegpu.py 5 gpu --path data/
 ```
 
 会在log目录下生成log, 若使用--with_profiler --export_json 会在data目录下生成json文件
 
 ```she
-usage: singlegpu.py [-h] [--batch_size BATCH_SIZE] [--with_profiler] [--export_json] total_epochs {cpu,gpu}
+usage: singlegpu.py --path PATH [--batch_size BATCH_SIZE] [--with_profiler] [--export_json] total_epochs {cpu,gpu}
 
 Benchmark IO for single GPU
 
@@ -17,16 +25,15 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  --path PATH           Path of dataset
   --batch_size BATCH_SIZE
                         Input batch size on each device (default: 64)
   --with_profiler       Use torch.profile to get a verbose output
   --export_json         Export result by export_chrome_trace method
 
 example:
-python singlegpu.py 1 gpu
+python singlegpu.py 5 gpu --path data/
 ```
-
-
 
 # 多机多卡(DDP)
 
@@ -39,7 +46,7 @@ torchrun
     --standalone
     --nnodes=1
     --nproc-per-node=$NUM_TRAINERS
-    ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs
+    ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs --path DATASETPATH
 ```
 
 ## 多机多卡
@@ -51,6 +58,6 @@ torchrun
     --rdzv-id=$JOB_ID
     --rdzv-backend=c10d
     --rdzv-endpoint=$HOST_NODE_ADDR
-    ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs
+    ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs --path DATASETPATH
 ```
 
