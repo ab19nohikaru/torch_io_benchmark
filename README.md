@@ -61,3 +61,7 @@ torchrun
     ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs --path DATASETPATH
 ```
 
+# Conclusion
+
+测试数据和小结参见[conclusion.md](https://github.com/ab19nohikaru/torch_io_benchmark/blob/main/conclusion.md)
+
