@@ -21,3 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 将dataset download与training拆分。使用dataset_download.py脚本下载dataset到指定路径，training脚本运行时需要指定dataset路径。
 
+## [v0.0.5] - 2024-5-21
+
+1. 补充ddp_multigpu.py的slurm启动脚本范例
+2. 实现基于pytorch-lightning版本的多机多卡 lightning_multinode.py，并附上slurm启动脚本范例
