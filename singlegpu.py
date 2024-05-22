@@ -67,6 +67,8 @@ def test_tensorclass_singlegpu(raw_dataset:Dataset, shuffle:bool, batch_size:int
         if with_profiler:
             logger.info(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
             if export_josn:
+                if not os.path.exists(f"data/singlegpu_{log_timestr}"):
+                    os.makedirs(f"data/singlegpu_{log_timestr}")
                 prof.export_chrome_trace(f"data/singlegpu_{log_timestr}/{preprocess_type}_trace.json")
 
 if __name__ == "__main__":
