@@ -26,7 +26,7 @@ OS：windows10
 | 训练时间    | 8.5375 s | 1.8220 s | 2.2306 s    | 2.4898 s |
 | 预处理+训练 | 8.5375 s | 8.0092 s | 17.6923     | 9.8138 s |
 
- **分析**：
+ 打开选项--with_profiler --export_json，借助torch.profiler工具，**分析结果如下**：
 
 1. 对于epoch=1的训练，preload与raw预处理+训练总时间相近；当多个epoch时preload能节省预处理时间
 2. tensorclass由于采用了索引式的数据结构组织方式，预处理和获取batch都有额外的开销，比preload慢

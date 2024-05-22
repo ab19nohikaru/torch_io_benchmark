@@ -25,3 +25,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 1. 补充ddp_multigpu.py的slurm启动脚本范例
 2. 实现基于pytorch-lightning版本的多机多卡 lightning_multinode.py，并附上slurm启动脚本范例
+
+## [v0.0.6] - 2024-5-23
+
+1. 修复MemmappedDataSet读取慢的问题
+2. 修复singlegpu.py使用选项--with_profiler --export_json报错的bug
+3. 修正和更新conclusion.md
