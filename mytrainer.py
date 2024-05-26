@@ -33,7 +33,7 @@ class Trainer:
         b_sz = len(next(iter(self.train_data))[0])
         t0 = time.time()
         for batch in self.train_data:
-            if self.dataloader_type == "tensorclass":
+            if "tensorclass" in self.dataloader_type:
                 source = batch.images.contiguous().to(self.gpu_id)
                 targets = batch.targets.contiguous().to(self.gpu_id)
             else:

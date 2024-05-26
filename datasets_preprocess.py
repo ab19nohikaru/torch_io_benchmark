@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
-from tensordict import MemoryMappedTensor
+
+from tensordict import MemoryMappedTensor, TensorDict
 from tensordict.prototype import tensorclass
 
 import time
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 import numpy as np
 from tempfile import mkdtemp
-import os.path as path
+import os
 
 class PreloadDataSet(Dataset):
     def __init__(self, raw_dataset:Dataset) -> None:
@@ -28,25 +29,57 @@ class PreloadDataSet(Dataset):
         return self.data[index]
 
 class MemmappedDataSet(Dataset):
-    def __init__(self, raw_dataset:Dataset) -> None:
+    DATAFILENAME = 'pydatafile'
+    TARGETFILENAME = 'pytargetfile'
+    def __init__(self, raw_dataset:Dataset, path:str=None, load:bool=True) -> None:
         super().__init__()
-        self.datafilename = path.join(mkdtemp(), 'pydatafile.dat')
-        self.targetfilename = path.join(mkdtemp(), 'pytargetfile.dat')
+        if path is None:
+            path = mkdtemp()
+        if load:
+            mmap_mode = 'w+'
+        else:
+            mmap_mode = 'r+'
+        self.datafilename = os.path.join(path, self.DATAFILENAME)
+        self.targetfilename = os.path.join(path, self.TARGETFILENAME)
         self.shape = ((len(raw_dataset), *raw_dataset[0][0].squeeze().shape))
 
-        t0 = time.time()
-        self.data_fp = np.memmap(self.datafilename, dtype='float32', mode='w+', shape=self.shape)
-        self.target_fp = np.memmap(self.targetfilename, dtype='int64', mode='w+', shape=(self.shape[0],))
-        for i, (image, target) in enumerate(raw_dataset):
-            self.data_fp[i] = image
-            self.target_fp[i] = target
-        logger.info(f"DataSet memmap done! time: {time.time() - t0: 4.4f} s")
+        self.data_fp = np.memmap(self.datafilename, dtype='float32', mode=mmap_mode, shape=self.shape)
+        self.target_fp = np.memmap(self.targetfilename, dtype='int64', mode=mmap_mode, shape=(self.shape[0],))
 
     def __len__(self):
         return self.shape[0]
 
     def __getitem__(self, index):
         return torch.from_numpy(self.data_fp[index]), self.target_fp[index]
+
+    @classmethod
+    def from_dataset(cls, raw_dataset:Dataset):
+        data = cls(raw_dataset)
+        t0 = time.time()
+        for i, (image, target) in enumerate(raw_dataset):
+            data.data_fp[i] = image
+            data.target_fp[i] = target
+        logger.info(f"load DataSet done! time: {time.time() - t0: 4.4f} s")
+        return data
+
+    @classmethod
+    def generate_mmap(cls, raw_dataset:Dataset, path:str):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        data = cls(raw_dataset, path, load=True)
+        t0 = time.time()
+        for i, (image, target) in enumerate(raw_dataset):
+            data.data_fp[i] = image
+            data.target_fp[i] = target
+        logger.info(f"load DataSet done! time: {time.time() - t0: 4.4f} s")
+        return data
+
+    @classmethod
+    def load_mmap(cls, raw_dataset:Dataset, path:str):
+        t0 = time.time()
+        data = cls(raw_dataset, path, load=False)
+        logger.info(f"Load DataSet from numpy.memmap file done! time: {time.time() - t0: 4.4f} s")
+        return data
 
 @tensorclass
 class ImageData:
@@ -69,11 +102,18 @@ class ImageData:
         logger.info(f"DataSet preload as tensorclass done! time: {time.time() - t0: 4.4f} s")
         return data
 
+    @classmethod
+    def load_mmap(cls, path:str):
+        t0 = time.time()
+        data = TensorDict.load_memmap(path)
+        logger.info(f"Load DataSet from tensordict.memmap file done! time: {time.time() - t0: 4.4f} s")
+        return data
+
 class MyDataSet(Dataset):
-    def __init__(self) -> None:
-        super().__init__()
-        self.data = torch.rand([20,28,28])
-        self.targets = torch.randint(0, 10, (len(self.data),))
+    PYZFILENAME = 'mydataset.npz'
+    def __init__(self):
+        self.data = None
+        self.targets = None
 
     def __len__(self):
         return len(self.data)
@@ -81,25 +121,43 @@ class MyDataSet(Dataset):
     def __getitem__(self, index):
         return self.data[index], self.targets[index]
 
+    def save(self, save_dir:str):
+        save_file = os.path.join(save_dir, self.PYZFILENAME)
+        np.savez_compressed(save_file,
+                            data=self.data, targets=self.targets)
+
+    @classmethod
+    def generate_random(cls, batch_size:int):
+        datasets = cls()
+        datasets.data = torch.rand([batch_size,28,28])
+        datasets.targets = torch.randint(0, 10, (len(datasets.data),))
+        return datasets
+
+    @classmethod
+    def from_pyz(cls, data_dir:str):
+        load_file = os.path.join(data_dir, cls.PYZFILENAME)
+        loaded_pack = np.load(load_file, mmap_mode="r")
+        datasets = cls()
+        datasets.data = loaded_pack["data"]
+        datasets.targets = loaded_pack["targets"]
+        return datasets
+
+
 # various dataset preprocessing method
-dataset_preprocess_dict = {"raw":lambda x:x,
-                      "preload":PreloadDataSet,
-                      "tensorclass":lambda dataset:ImageData.from_dataset(dataset),
-                      "memmap":MemmappedDataSet
+dataset_preprocess_dict = {"raw":lambda dataset, path:dataset,
+                      "preload":lambda dataset, path:PreloadDataSet(dataset),
+                      "tensorclass":lambda dataset, path:ImageData.from_dataset(dataset),
+                      #"memmap":lambda dataset, path:MemmappedDataSet.from_dataset(dataset),
+                      "tensorclass_memmap":lambda dataset, path:ImageData.load_mmap(path),
+                      "np_memmap":lambda dataset, path:MemmappedDataSet.load_mmap(dataset, path),
                       }
 
-if __name__ == "__main__":
+multigpu_dataset_preprocess_list = ["raw", "tensorclass_memmap", "np_memmap"]
+
+def profile_dataset_preprocess(raw_training_data: Dataset):
     from torch.profiler import profile, record_function, ProfilerActivity
     import os
-    raw_training_data = MyDataSet()
-    from torchvision import datasets
-    from torchvision.transforms import ToTensor
-    raw_training_data = datasets.FashionMNIST(
-        root="data",
-        train=False,
-        download=False,
-        transform=ToTensor(),
-    )
+
     save_fir = "log/preprocess_profile"
     if not os.path.exists(save_fir):
         os.makedirs(save_fir)
@@ -115,3 +173,6 @@ if __name__ == "__main__":
                 preprocess_method(raw_training_data)
         logging.info(prof.key_averages().table(sort_by="self_cpu_time_total", row_limit=20))
         prof.export_chrome_trace(f"{save_fir}/preprocess_{preprocess_type}_trace.json")
+
+if __name__ == "__main__":
+    pass

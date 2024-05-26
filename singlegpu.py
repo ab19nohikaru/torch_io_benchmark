@@ -7,7 +7,7 @@ import time, os, platform
 import logging
 from contextlib import nullcontext
 from torch.profiler import profile, record_function, ProfilerActivity
-from datasets_preprocess import dataset_preprocess_dict
+from datasets_preprocess import dataset_preprocess_dict, MyDataSet
 from mytrainer import Trainer, ToyNet
 
 log_timestr = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
@@ -31,27 +31,20 @@ def get_available_devices():
 logger.info(f"Available cpus: {os.cpu_count()}")
 logger.info(f"Available devices: {get_available_devices()}")
 
-def get_dataloader_tranverse_time(dataloader:DataLoader, epochs:int)->float:
-    t0 = time.time()
-    for t in range(epochs):
-        for data in dataloader:
-            pass
-    return time.time() - t0
-
 def test_tensorclass_singlegpu(raw_dataset:Dataset, shuffle:bool, batch_size:int, epochs:int,
-                               device, with_profiler:bool, export_josn:bool):
+                               device, data_dir:str, with_profiler:bool, export_josn:bool):
 
     dl_types = dataset_preprocess_dict.keys()
-
     for dl_index, preprocess_type in enumerate(dl_types):
-        if preprocess_type == "tensorclass":
+        if "tensorclass" in preprocess_type:
             collate_fn=lambda x: x
         else:
             collate_fn = None
-        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset)
-        dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
-        logger.info(f"{preprocess_type.capitalize()} dataloader {'random' if shuffle else 'sequential'} tranverse! time: {get_dataloader_tranverse_time(dataloader, epochs): 4.4f} s")
-
+        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset, data_dir)
+        dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn,)
+        #logger.info(f"{preprocess_type.capitalize()} dataloader {'random' if shuffle else 'sequential'} tranverse! time: {get_dataloader_tranverse_time(dataloader, epochs): 4.4f} s")
+        # logger.info(f"{preprocess_type.capitalize()} dataloader {len(dataloader)}")
+    
         model = ToyNet()
         optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
         trainer = Trainer(model, dataloader, optimizer, device, preprocess_type)
@@ -77,6 +70,7 @@ if __name__ == "__main__":
     parser.add_argument('total_epochs', type=int, help='Total epochs to train the model')
     parser.add_argument('device', choices=["cpu", "gpu"], help='use CPU or single GPU to train')
     parser.add_argument('--path', required=True, type=str, help='Path of dataset')
+    parser.add_argument('--dataset', required=True, choices=["mnist", "mydataset"], help='Select dataset for test')
     parser.add_argument('--batch_size', default=64, type=int, help='Input batch size on each device (default: 64)')
     parser.add_argument('--with_profiler', action="store_true", help='Use torch.profile to get a verbose output')
     parser.add_argument('--export_json', action="store_true", help='Export result by export_chrome_trace method')
@@ -89,14 +83,19 @@ if __name__ == "__main__":
     else:
         device = "cpu"
     logger.info(f"Using device: {device}")
-    raw_training_data = datasets.FashionMNIST(
-        root=args.path,
-        train=True,
-        download=False,
-        transform=ToTensor(),
-    )
-    logger.info(f"loading dataset from {args.path} len {len(raw_training_data)}")
+    if args.dataset == "mnist":
+        raw_training_data = datasets.FashionMNIST(
+            root=args.path,
+            train=True,
+            download=False,
+            transform=ToTensor(),
+        )
+        data_path = os.path.join(args.path, "mnist")
+    else:
+        raw_training_data = MyDataSet.from_pyz(args.path)
+        data_path = os.path.join(args.path, "mydataset")
+    logger.info(f"loading {args.dataset} from {data_path} len {len(raw_training_data)}")
 
     test_tensorclass_singlegpu(raw_training_data, True, args.batch_size,
-                            args.total_epochs, device, args.with_profiler,
+                            args.total_epochs, device, data_path, args.with_profiler,
                             args.export_json)

@@ -1,7 +1,6 @@
 # 数据集下载
 
-执行训练任务前需要执行下列指令，下载数据集到指定路径
-
+执行训练任务前需要执行下列指令，下载FashionMNIST数据集并生成MyDataSet数据集到指定路径
 ```
 python dataset_download.py --path PATH
 ```
@@ -9,13 +8,14 @@ python dataset_download.py --path PATH
 # 单机单卡
 
 ```python
-python singlegpu.py 5 gpu --path data/
+python singlegpu.py 5 gpu --path data/ --dataset=mnist
+python singlegpu.py 5 gpu --path data/ --dataset=mydataset
 ```
 
 **会在log目录下生成log**, 若使用--with_profiler --export_json 会在data目录下生成json文件
 
 ```she
-usage: singlegpu.py --path PATH [--batch_size BATCH_SIZE] [--with_profiler] [--export_json] total_epochs {cpu,gpu}
+usage: singlegpu.py [-h] --path PATH --dataset {mnist,mydataset} [--batch_size BATCH_SIZE] [--with_profiler] [--export_json] total_epochs {cpu,gpu}
 
 Benchmark IO for single GPU
 
@@ -26,13 +26,39 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   --path PATH           Path of dataset
+  --dataset {mnist,mydataset}
+                        Select dataset for test
   --batch_size BATCH_SIZE
                         Input batch size on each device (default: 64)
   --with_profiler       Use torch.profile to get a verbose output
   --export_json         Export result by export_chrome_trace method
 
 example:
-python singlegpu.py 5 gpu --path data/
+python singlegpu.py 5 gpu --path data/ --dataset=mnist
+python singlegpu.py 5 gpu --path data/ --dataset=mydataset
+```
+
+脚本test_funcs.py，测试对比数据集不同预处理后遍历/训练时间 **epoch 取 5， 重复20次**
+
+测试结果以.npz格式保存在log目录
+
+```
+usage: test_funcs.py [-h] --path PATH [--dataset {mnist,mydataset}] [--test_train_time] [--test_tranverse_time]
+
+Test dataset train/tranverse time for single gpu
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --path PATH           Path of dataset
+  --dataset {mnist,mydataset}
+                        Select dataset for test
+  --test_train_time     Test dataset train time
+  --test_tranverse_time
+                        Test dataset tranverse time
+                        
+example:
+python test_funcs.py --path data/ --dataset=mydataset --test_tranverse_time
+python test_funcs.py --path data/ --dataset=mnist --test_train_time
 ```
 
 # 多机多卡(DDP)
@@ -51,6 +77,9 @@ torchrun
     --nnodes=1
     --nproc-per-node=$NUM_TRAINERS
     ddp_multigpu.py [--batch_size BATCH_SIZE] total_epochs --path DATASETPATH
+    
+example:
+  torchrun --standalone  --nnodes=1 --nproc-per-node=1 ddp_multigpu.py 5 --path data
 ```
 
 ## 多机多卡

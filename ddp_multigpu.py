@@ -8,7 +8,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 import os, time, logging
 
-from datasets_preprocess import dataset_preprocess_dict
+from datasets_preprocess import dataset_preprocess_dict, MyDataSet, multigpu_dataset_preprocess_list
 from mytrainer import Trainer, ToyNet
 
 log_timestr = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
@@ -45,24 +45,31 @@ class DDPTrainer(Trainer):
         super()._run_epoch(epoch)
 
 
-def load_train_objs(path: str):
-    train_set = datasets.FashionMNIST(
-        root=path,
-        train=True,
-        download=False,
-        transform=ToTensor(),
-    )
+def load_train_objs(path: str, dataset_name:str):
+    if dataset_name == "mnist":
+        raw_training_data = datasets.FashionMNIST(
+            root=path,
+            train=True,
+            download=False,
+            transform=ToTensor(),
+        )
+        data_path = os.path.join(path, "mnist")
+    else:
+        raw_training_data = MyDataSet.from_pyz(path)
+        data_path = os.path.join(path, "mydataset")
+
+    logger.info(f"loading {dataset_name} from {data_path} len {len(raw_training_data)}")
     model = ToyNet()
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
-    return train_set, model, optimizer
+    return raw_training_data, model, optimizer, data_path
 
 
-def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str):
-    if preprocess_type == "tensorclass":
+def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str, data_path:str):
+    if "tensorclass" in preprocess_type:
         collate_fn=lambda x: x
     else:
         collate_fn = None
-    training_data = dataset_preprocess_dict[preprocess_type](dataset)
+    training_data = dataset_preprocess_dict[preprocess_type](dataset, data_path)
     return DataLoader(
         training_data,
         batch_size=batch_size,
@@ -73,13 +80,13 @@ def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str):
     )
 
 
-def main(total_epochs: int, batch_size: int, path: str):
+def main(total_epochs: int, batch_size: int, path: str, dataset_name:str):
     ddp_setup()
-    raw_dataset, model, optimizer = load_train_objs(path)
-    dl_types = dataset_preprocess_dict.keys()
+    raw_dataset, model, optimizer, data_path = load_train_objs(path, dataset_name)
+    dl_types = multigpu_dataset_preprocess_list
 
     for preprocess_type in dl_types:
-        dataloader = prepare_dataloader(raw_dataset, batch_size, preprocess_type)
+        dataloader = prepare_dataloader(raw_dataset, batch_size, preprocess_type, data_path)
         trainer = DDPTrainer(model, dataloader, optimizer, preprocess_type)
         logger.info(f"{preprocess_type} Start Train")
         trainer.train(total_epochs)
@@ -92,6 +99,9 @@ if __name__ == "__main__":
     parser.add_argument('total_epochs', type=int, help='Total epochs to train the model')
     parser.add_argument('--batch_size', default=64, type=int, help='Input batch size on each device (default: 32)')
     parser.add_argument('--path', required=True, type=str, help='Path of dataset')
+    #parser.add_argument('--dataset', choices=["mnist", "mydataset"], help='Select dataset for test')
     args = parser.parse_args()
 
-    main(args.total_epochs, args.batch_size, args.path)
+    #main(args.total_epochs, args.batch_size, args.path, args.dataset)
+    main(args.total_epochs, args.batch_size, args.path, "mnist")
+    main(args.total_epochs, args.batch_size, args.path, "mydataset")

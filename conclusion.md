@@ -5,45 +5,120 @@ OS：windows10
 
 单显卡 NVIDIA GeForce GTX 1050 
 
-数据集 torchvision.datasets.FashionMNIST
+选取两类数据集 
 
-## 数据集预处理
+1. torchvision.datasets.FashionMNIST：图片数据，读取时需要一定预处理时间
+2. datasets_preprocess.MyDataSet：.npz格式的numpy数组，读取时基本不需要预处理时间
 
-实验对数据集FashionMNIST 进行了不同预处理，得到四类DataLoader
+## 数据文件生成
 
-1. raw_dataloader: 不做预处理，每次从DataLoader时获取batch时都需要进行图片解码
-2. preload_dataloader: 将所有图片预解码后载入内存
-3. tensorclass_dataloader：将所有图片预解码后，按照tensordict的索引式结构保存在内存中
-4. memmap_dataloader: 将所有图片预解码后保存到硬盘上的file，通过numpy.memmap访问memory-map file来获取batch
+使用下列指令生成测试使用的数据集
+
+```
+python dataset_download.py --path PATH
+```
+
+该脚本执行下列操作
+
+1. 将FashionMNIST数据集下载到 PATH 目录下子目录FashionMNIST
+2. 在 PATH 目录下生成MyDataSet数据集mydataset.npz
+3. 加载FashionMNIST数据集后，memmap到mnist子目录下文件，并保存
+4. 加载mydataset数据集后，memmap到mydataset子目录下文件，并保存
 
 ## 单机单卡
 
-训练和遍历数据集 **epoch 取 1， batch_size 取 64**
+### 数据集预处理
 
-| DataLoader  | raw      | preload  | tensorclass | memmap   |
-| ----------- | -------- | -------- | ----------- | -------- |
-| 预处理时间  | 0        | 6.1872 s | 15.4617 s   | 7.3240 s |
-| 训练时间    | 8.5375 s | 1.8220 s | 2.2306 s    | 2.4898 s |
-| 预处理+训练 | 8.5375 s | 8.0092 s | 17.6923     | 9.8138 s |
+实验对数据集进行了不同预处理，得到四类DataLoader
 
- 打开选项--with_profiler --export_json，借助torch.profiler工具，**分析结果如下**：
+1. raw: 不做预处理，每次从DataLoader时获取batch时都需要进行图片解码
+2. preload: 将所有图片预解码后载入内存
+3. tensorclass：将所有图片预解码后，按照tensordict的索引式结构保存在内存中
+4. tensorclass_memmap：通过TensorDict.load_memmap直接memmap与disk上文件建立内存映射
+5. np_memmap：通过numpy.memmap直接与disk上文件建立内存映射
 
-1. 对于epoch=1的训练，preload与raw预处理+训练总时间相近；当多个epoch时preload能节省预处理时间
-2. tensorclass由于采用了索引式的数据结构组织方式，预处理和获取batch都有额外的开销，比preload慢
-3. 相较于preload，memmap预处理还需将解码后数据写入file；获取batch时也需要mmap访问file，因此比tensorclass慢
+## DataLoader速度测试
+
+<font color=red>由于Windows版本torch.profiler的strack_trace对GPU不生效[Issue 93855](https://github.com/pytorch/pytorch/issues/93855), 下面仅对CPU耗时情况测试和分析</font>
+
+利用下列代码获取遍历DataLoader耗时
+
+```python
+# 完整代码见 test_funcs.py
+def get_dataloader_tranverse_time(dataloader:DataLoader, epochs:int):
+    t0 = time.time()
+    for t in range(epochs):
+        for batch in dataloader:
+            source, targets = batch
+            # avoid memmap lazy load
+            source.to(0)
+            targets.to(0)
+    return time.time() - t0
+```
+
+为了减小误差 **epoch 取 5， 重复20次**， 使用脚本test_funcs.py
+
+```
+python test_funcs.py --path data/ --dataset=mnist --test_tranverse_time
+python test_funcs.py --path data/ --dataset=mydataset --test_tranverse_time
+```
+
+得到用时的均值标准差（单位：秒）如下
+
+|                    | FashionMNIST     | MyDataSet       |
+| ------------------ | ---------------- | --------------- |
+| raw                | 32.976 （0.526） | 3.193 （0.575） |
+| preload            | 2.076 （0.023）  | 3.774 （0.164） |
+| tensorclass        | 3.645 （0.103）  | 3.898 （0.335） |
+| tensorclass_memmap | 4.233 （0.132）  | 3.765 （0.423） |
+| np_memmap          | 4.408 （0.046）  | 4.317 （0.112） |
+
+用一个简单模型ToyNet，比较训练用时
+
+为了减小误差 **epoch 取 5， 重复20次**， 使用脚本test_funcs.py
+
+```
+python test_funcs.py --path data/ --dataset=mnist --test_train_time
+python test_funcs.py --path data/ --dataset=mydataset --test_train_time
+```
+
+得到用时的均值标准差（单位：秒）如下
+
+|                    | FashionMNIST    | MyDataSet        |
+| ------------------ | --------------- | ---------------- |
+| raw                | 51.462（0.657） | 10.646 （0.247） |
+| preload            | 8.680（0.041）  | 11.019 （0.394） |
+| tensorclass        | 12.411（0.177） | 14.461 （0.859） |
+| tensorclass_memmap | 12.963（0.285） | 14.807 （0.781） |
+| np_memmap          | 10.988（0.034） | 12.088 （0.601） |
+
+**分析**
+
+FashionMNIST数据集
+
+1. 比较raw和其他DataLoader，对于需要解码的图片数据集，提前预处理能带来很大的速度提升
+2. preload与tensorclass都保存在内存中，tensorclass略慢，可能是tensordict数据结构带来的overhead
+3. tensorclass_memmap经过内存映射，因此比tensorclass慢
+4. np_memmap遍历时间比tensorclass慢，但训练时间反而更快，暂未定位到原因
+
+MyDataSet数据集
+
+1. 比较raw和其他DataLoader，对于不需要预处理的数据集，提前预处理并不能带来速度提升
+2. 可以看出tensorclass和tensorclass_memmap的std较大，因此二者之间及与preload的对比没有意义
+3. std较大的原因，通过torch.profiler工具发现tensorclass和tensorclass_memmap的每个batch用时相差很大，后来发现cpu占用率超过80%，而其他DataLoader只有40%作用，推测是cpu占用过高造成的。
+
+**结论**
+
+尽管受限于测试环境，还是能够得到以下结论
+
+**tensorclass相较于DataLoader的提速来自于数据集的预处理，使用其它方式预处理也能达到类似效果**
+
+ [RFC](https://github.com/Lightning-AI/pytorch-lightning/issues/17851) 中强调preprocessing带来speed-up，与我们的结论一致
+
+> One of the goals of tensordict is to get an efficient representation of data on disk, by tracking file name and location, while preserving a fast memmap-based indexing. This allows us to represent **huge datasets** composed of multiple tensors on disk. If part of the **preprocessing** can be done anticipatively, this can bring a tremendous speed-up on dataloading:
 
 ## 单机多卡和多机多卡
 
-根据官方文档的描述，通过memmap建立共享文件系统上file到tensordict对象的映射，不同进程/节点能直接访问同一个tensordict对象。
+对于多卡和多节点的情况，一般使用大数据集和共享文件系统。因此仅对比raw，tensorclass_memmap和np_memmap三类DataLoader
 
-从单机单卡的结果来看，tensorclass组织数据结构的方式，会在预处理和获取batch时带来一定的overhead。想要体现官方文档描述的优势，则要构建完整数据集预处理后无法全部加载进内存的情形，即大数据集。这时tensorclass能将预处理后的完整数据集保存到磁盘上，每次获取batch都能直接访问对象，从而消除额外的预处理开销。
-
-而由于最开始的理解错误，目前的单机多卡和多机多卡实验中，每个进程都会实例化自己的tensorclass_dataloader而不是共用一个对象，与单机单卡实验没有本质区别，因此不能验证其IO优势。
-
-# 后续的实验
-
-可以从两个方向进行
-
-1. 参考[官方测试](https://github.com/pytorch/tensordict/blob/main/benchmarks/distributed/dataloading.py)，构建多节点共享tensorclass_dataloader的情形，与一般的DataLoader性能进行对比；
-2. 当数据集以一种比较高效的方式如hdf5存储时，验证tensorclass是否还有优势。
-
+测试代码已完成，数据待补充。
