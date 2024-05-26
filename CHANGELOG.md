@@ -31,3 +31,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 1. 修复MemmappedDataSet读取慢的问题
 2. 修复singlegpu.py使用选项--with_profiler --export_json报错的bug
 3. 修正和更新conclusion.md
+
+## [v0.1.0] - 2024-5-26
+
+1. 新增数据集MyDataSet，更新相关测试代码
+
+2. 更新dataset_download.py，测试前需要重新运行生成数据集文件
+
+3. 新增数据集遍历时间和训练时间的统计测试，更新conclusion.md
+
+   
