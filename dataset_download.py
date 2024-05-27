@@ -11,6 +11,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Download and prepare datasets for subsequent training')
     parser.add_argument('--path', required=True, type=str, help='Save path of dataset')
+    parser.add_argument('--size', type=int, default=60000, help='Size of generated MyDataSet')
     args = parser.parse_args()
 
     from torchvision.transforms import ToTensor
@@ -27,7 +28,7 @@ if __name__ == "__main__":
     print(f"FashionMNIST dataset is ready in {MNIST_save_dir}")
 
     from datasets_preprocess import MyDataSet
-    my_training_data = MyDataSet.generate_random(60000)
+    my_training_data = MyDataSet.generate_random(args.size)
     mydataset_save_dir = os.path.join(save_dir, "mydataset")
     generate_mmap_datasets(my_training_data, mydataset_save_dir)
     my_training_data.save(save_dir)

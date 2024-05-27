@@ -18,7 +18,7 @@ logger.addHandler(logging.StreamHandler())
 
 def get_dataloader_tranverse_time(dataloader:DataLoader, epochs:int, dataloader_type:str):
     t0 = time.time()
-    #print(f"{dataloader_type}:{epochs} {len(dataloader)}")
+    #logger.info(f"{dataloader_type}:{epochs} {len(dataloader)}")
     for t in range(epochs):
         for batch in dataloader:
             if "tensorclass" in dataloader_type:
@@ -61,7 +61,7 @@ def test_dataloader_traverse(raw_dataset:Dataset, batch_size:int, epochs:int,
         dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
         for index in range(repeats):
             tranverse_time[preprocess_type][index] = get_dataloader_tranverse_time(dataloader, epochs, preprocess_type)
-        print(f"{preprocess_type} tranverse time {np.mean(tranverse_time[preprocess_type])} {np.std(tranverse_time[preprocess_type])}")
+        logger.info(f"{preprocess_type} tranverse time {np.mean(tranverse_time[preprocess_type])} {np.std(tranverse_time[preprocess_type])}")
     return tranverse_time
 
 def test_dataloader_train(raw_dataset:Dataset, batch_size:int, epochs:int,
@@ -88,7 +88,7 @@ def test_dataloader_train(raw_dataset:Dataset, batch_size:int, epochs:int,
             t0 = time.time()
             trainer.train(epochs)
             train_time_dict[preprocess_type][index] = time.time() - t0
-        print(f"{preprocess_type} train time {np.mean(train_time_dict[preprocess_type])} {np.std(train_time_dict[preprocess_type])}")
+        logger.info(f"{preprocess_type} train time {np.mean(train_time_dict[preprocess_type])} {np.std(train_time_dict[preprocess_type])}")
     return train_time_dict
 
 def profile_dataset_preprocess(raw_dataset:Dataset, batch_size:int, epochs:int,
@@ -107,7 +107,7 @@ def profile_dataset_preprocess(raw_dataset:Dataset, batch_size:int, epochs:int,
         collate_fn = None
     training_data = dataset_preprocess_dict[preprocess_type](raw_dataset, data_dir)
     dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
-    print(f"{preprocess_type} len {len(training_data)}")
+    logger.info(f"{preprocess_type} len {len(training_data)}")
     with profile(activities=[ProfilerActivity.CPU],
         record_shapes=False,
         profile_memory=True,
@@ -146,7 +146,7 @@ if __name__ == "__main__":
         raw_training_data = MyDataSet.from_pyz(data_path)
         tag = "MyDataSet"
         data_path = os.path.join(data_path, "mydataset")
-    print(f"{tag} len {len(raw_training_data)}")
+    logger.info(f"{tag} len {len(raw_training_data)}")
     time_str = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
 
     if args.test_tranverse_time:

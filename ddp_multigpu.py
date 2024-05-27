@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
 def ddp_setup():
-    init_process_group(backend="nccl")
+    init_process_group(backend="gloo")
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
 class DDPTrainer(Trainer):
@@ -64,7 +64,7 @@ def load_train_objs(path: str, dataset_name:str):
     return raw_training_data, model, optimizer, data_path
 
 
-def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str, data_path:str):
+def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str, data_path:str, num_workers:int):
     if "tensorclass" in preprocess_type:
         collate_fn=lambda x: x
     else:
@@ -75,18 +75,19 @@ def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str, d
         batch_size=batch_size,
         pin_memory=True,
         shuffle=False,
+        num_workers=num_workers,
         sampler=DistributedSampler(training_data),
         collate_fn=collate_fn
     )
 
 
-def main(total_epochs: int, batch_size: int, path: str, dataset_name:str):
+def main(total_epochs: int, batch_size: int, path: str, dataset_name:str, num_workers:int):
     ddp_setup()
     raw_dataset, model, optimizer, data_path = load_train_objs(path, dataset_name)
     dl_types = multigpu_dataset_preprocess_list
 
     for preprocess_type in dl_types:
-        dataloader = prepare_dataloader(raw_dataset, batch_size, preprocess_type, data_path)
+        dataloader = prepare_dataloader(raw_dataset, batch_size, preprocess_type, data_path, num_workers)
         trainer = DDPTrainer(model, dataloader, optimizer, preprocess_type)
         logger.info(f"{preprocess_type} Start Train")
         trainer.train(total_epochs)
@@ -100,8 +101,18 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', default=64, type=int, help='Input batch size on each device (default: 32)')
     parser.add_argument('--path', required=True, type=str, help='Path of dataset')
     #parser.add_argument('--dataset', choices=["mnist", "mydataset"], help='Select dataset for test')
+    parser.add_argument('--num_workers', default=0, type=int, help='Number of DataLoader workers')
+    parser.add_argument('--repeats', default=1, type=int, help='Number of repeat runs')
     args = parser.parse_args()
 
+    logger.info(args)
     #main(args.total_epochs, args.batch_size, args.path, args.dataset)
-    main(args.total_epochs, args.batch_size, args.path, "mnist")
-    main(args.total_epochs, args.batch_size, args.path, "mydataset")
+    split_line = "*"*65
+    for i in range(args.repeats):
+        logger.info(split_line + f"Loop {i+1} Start" + split_line)
+        main(args.total_epochs, args.batch_size, args.path, "mnist", args.num_workers)
+        logger.info(split_line)
+        logger.info(split_line)
+        main(args.total_epochs, args.batch_size, args.path, "mydataset", args.num_workers)
+        logger.info(split_line + f"Loop {i+1} End" + split_line)
+    
