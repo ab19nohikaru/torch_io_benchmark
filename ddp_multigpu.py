@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
 def ddp_setup():
-    init_process_group(backend="gloo")
+    init_process_group(backend="nccl")
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
 class DDPTrainer(Trainer):
