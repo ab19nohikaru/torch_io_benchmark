@@ -8,8 +8,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 import os, time, logging
 
-from datasets_preprocess import dataset_preprocess_dict, MyDataSet, multigpu_dataset_preprocess_list
-from mytrainer import Trainer, ToyNet
+from datasets_preprocess import MyDataSet, multigpu_dataset_preprocess_list, get_preprocessed_dataset
+from mytrainer import Trainer, ToyNet, Collate
 
 log_timestr = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
 
@@ -66,10 +66,10 @@ def load_train_objs(path: str, dataset_name:str):
 
 def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str, data_path:str, num_workers:int):
     if "tensorclass" in preprocess_type:
-        collate_fn=lambda x: x
+        collate_fn=Collate()
     else:
         collate_fn = None
-    training_data = dataset_preprocess_dict[preprocess_type](dataset, data_path)
+    training_data = get_preprocessed_dataset(preprocess_type, dataset, data_path)
     return DataLoader(
         training_data,
         batch_size=batch_size,

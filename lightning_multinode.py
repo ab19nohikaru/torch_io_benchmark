@@ -8,8 +8,8 @@ from lightning.pytorch.loggers import CSVLogger
 from lightning.pytorch.callbacks import Timer
 import time, os, logging
 
-from datasets_preprocess import dataset_preprocess_dict, MyDataSet, multigpu_dataset_preprocess_list
-from mytrainer import ToyNet
+from datasets_preprocess import get_preprocessed_dataset, MyDataSet, multigpu_dataset_preprocess_list
+from mytrainer import ToyNet, Collate
 
 log_timestr = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
 
@@ -73,10 +73,10 @@ def load_train_objs(path: str, dataset_name:str):
 
 def prepare_dataloader(dataset: Dataset, batch_size: int, preprocess_type:str, data_path:str, num_workers:int):
     if "tensorclass" in preprocess_type:
-        collate_fn=lambda x: x
+        collate_fn=Collate()
     else:
         collate_fn = None
-    training_data = dataset_preprocess_dict[preprocess_type](dataset, data_path)
+    training_data = get_preprocessed_dataset(preprocess_type, dataset, data_path)
     return DataLoader(
         training_data,
         batch_size=batch_size,

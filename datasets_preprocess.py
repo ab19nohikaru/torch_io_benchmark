@@ -142,17 +142,22 @@ class MyDataSet(Dataset):
         datasets.targets = loaded_pack["targets"]
         return datasets
 
-
-# various dataset preprocessing method
-dataset_preprocess_dict = {"raw":lambda dataset, path:dataset,
-                      "preload":lambda dataset, path:PreloadDataSet(dataset),
-                      "tensorclass":lambda dataset, path:ImageData.from_dataset(dataset),
-                      #"memmap":lambda dataset, path:MemmappedDataSet.from_dataset(dataset),
-                      "tensorclass_memmap":lambda dataset, path:ImageData.load_mmap(path),
-                      "np_memmap":lambda dataset, path:MemmappedDataSet.load_mmap(dataset, path),
-                      }
-
+dataset_preprocess_list = ["raw", "preload", "tensorclass", "tensorclass_memmap", "np_memmap"]
 multigpu_dataset_preprocess_list = ["raw", "tensorclass_memmap", "np_memmap"]
+
+def get_preprocessed_dataset(preprocess_type:str, dataset:Dataset, path:str):
+    if preprocess_type not in dataset_preprocess_list:
+        raise ValueError(f"Invalid preprocess type {preprocess_type}")
+    if "raw" == preprocess_type:
+        return dataset
+    elif "preload" == preprocess_type:
+        return PreloadDataSet(dataset)
+    elif "tensorclass" == preprocess_type:
+        return ImageData.from_dataset(dataset)
+    elif "tensorclass_memmap" == preprocess_type:
+        return ImageData.load_mmap(path)
+    elif "np_memmap" == preprocess_type:
+        return MemmappedDataSet.load_mmap(dataset, path)
 
 def profile_dataset_preprocess(raw_training_data: Dataset):
     from torch.profiler import profile, record_function, ProfilerActivity
@@ -163,14 +168,14 @@ def profile_dataset_preprocess(raw_training_data: Dataset):
         os.makedirs(save_fir)
     logging.basicConfig(handlers=(logging.FileHandler(filename=save_fir + "/self_cpu_time_total.log", mode="w"),),
                     level=logging.INFO)
-    for preprocess_type, preprocess_method in dataset_preprocess_dict.items():
+    for preprocess_type in dataset_preprocess_list:
         with profile(activities=[ProfilerActivity.CPU],
             record_shapes=False,
             profile_memory=True,
             with_stack=True,
             ) as prof:
             with record_function(f"{preprocess_type} dataset"):
-                preprocess_method(raw_training_data)
+                get_preprocessed_dataset(preprocess_type, raw_training_data)
         logging.info(prof.key_averages().table(sort_by="self_cpu_time_total", row_limit=20))
         prof.export_chrome_trace(f"{save_fir}/preprocess_{preprocess_type}_trace.json")
 

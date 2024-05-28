@@ -1,8 +1,8 @@
-from datasets_preprocess import dataset_preprocess_dict, MyDataSet
+from datasets_preprocess import dataset_preprocess_list, MyDataSet, get_preprocessed_dataset
 from torch.utils.data import DataLoader, Dataset
 import time
 import numpy as np
-from mytrainer import Trainer, ToyNet
+from mytrainer import Trainer, ToyNet, Collate
 import torch
 import os, logging
 
@@ -43,7 +43,7 @@ def test_dataloader_traverse(raw_dataset:Dataset, batch_size:int, epochs:int,
     repeats = 20
     shuffle = True
 
-    dl_types = dataset_preprocess_dict.keys()
+    dl_types = dataset_preprocess_list
     # dl_types = [#"raw",
     #                 "preload",
     #                 # "tensorclass",
@@ -54,10 +54,10 @@ def test_dataloader_traverse(raw_dataset:Dataset, batch_size:int, epochs:int,
 
     for dl_index, preprocess_type in enumerate(dl_types):
         if "tensorclass" in preprocess_type:
-            collate_fn=lambda x: x
+            collate_fn=Collate()
         else:
             collate_fn = None
-        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset, data_dir)
+        training_data = get_preprocessed_dataset(preprocess_type, raw_dataset, data_dir)
         dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
         for index in range(repeats):
             tranverse_time[preprocess_type][index] = get_dataloader_tranverse_time(dataloader, epochs, preprocess_type)
@@ -70,15 +70,15 @@ def test_dataloader_train(raw_dataset:Dataset, batch_size:int, epochs:int,
     shuffle = True
     device = 0
 
-    dl_types = dataset_preprocess_dict.keys()
+    dl_types = dataset_preprocess_list
     train_time_dict = {preprocess_type:np.zeros((repeats,)) for preprocess_type in dl_types}
 
     for dl_index, preprocess_type in enumerate(dl_types):
         if "tensorclass" in preprocess_type:
-            collate_fn=lambda x: x
+            collate_fn=Collate()
         else:
             collate_fn = None
-        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset, data_dir)
+        training_data = get_preprocessed_dataset(preprocess_type, raw_dataset, data_dir)
         dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn,
                                 pin_memory=False)
         model = ToyNet()
@@ -102,10 +102,10 @@ def profile_dataset_preprocess(raw_dataset:Dataset, batch_size:int, epochs:int,
         os.makedirs(save_fir)
     preprocess_type = "np_memmap"
     if "tensorclass" in preprocess_type:
-        collate_fn=lambda x: x
+        collate_fn=Collate()
     else:
         collate_fn = None
-    training_data = dataset_preprocess_dict[preprocess_type](raw_dataset, data_dir)
+    training_data = get_preprocessed_dataset(preprocess_type, raw_dataset, data_dir)
     dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
     logger.info(f"{preprocess_type} len {len(training_data)}")
     with profile(activities=[ProfilerActivity.CPU],

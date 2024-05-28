@@ -10,8 +10,8 @@ python dataset_download.py --path PATH [--size SIZE]
 # 单机单卡
 
 ```python
-python singlegpu.py 5 gpu --path data/ --dataset=mnist
-python singlegpu.py 5 gpu --path data/ --dataset=mydataset
+python singlegpu.py 5 gpu --path data/ --dataset=mnist --repeats 10 --num_workers=4
+python singlegpu.py 5 gpu --path data/ --dataset=mydataset --repeats 10
 ```
 
 **会在log目录下生成log**, 若使用--with_profiler --export_json 会在data目录下生成json文件
@@ -38,7 +38,7 @@ optional arguments:
   --num_workers NUM_WORKERS
                         Number of DataLoader workers
 example:
-python singlegpu.py 5 gpu --path data/ --dataset=mnist --repeats 10
+python singlegpu.py 5 gpu --path data/ --dataset=mnist --repeats 10 --num_workers=4
 python singlegpu.py 5 gpu --path data/ --dataset=mydataset --repeats 10
 ```
 
@@ -83,7 +83,7 @@ torchrun
     ddp_multigpu.py [--batch_size BATCH_SIZE] [--num_workers NUM_WORKERS] [--repeats REPEATS] total_epochs --path DATASETPATH
     
 example:
-  torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5 --repeats=10 --path data
+  torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5 --repeats=10 --path data --num_workers=4
 ```
 
 ## 多机多卡
@@ -144,30 +144,88 @@ python dataset_download.py --path DATAPATH --size 600000
 
 ### 2. 单机单卡
 
- 5 epochs 循环 20 次
+```
+python singlegpu.py total_epochs {cpu,gpu} --path DATAPATH --dataset={mnist,mydataset} [--repeats REPEATS] [--num_workers NUM_WORKERS] 
+```
+参数列表
 
+| --dataset | --num_workers | --repeats | total_epochs |
+| --------- | ------------- | --------- | ------------ |
+| mnist     | 0             | 20        | 5            |
+| mydataset | 0             | 20        | 5            |
+| mnist     | 4             | 20        | 5            |
+| mydataset | 4             | 20        | 5            |
+| mnist     | 8             | 20        | 5            |
+| mydataset | 8             | 20        | 5            |
+
+对应命令如下
 ```
 python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 20
 python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 20
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 20 --num_workers=4
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 20 --num_workers=4
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 20 --num_workers=8
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 20 --num_workers=8
 ```
 
 ### 3. 单机多卡
 
-4 GPU 5 epochs 循环 20 次
+```
+torchrun --standalone --nnodes=1 --nproc-per-node=NPROC_PER_NODE ddp_multigpu.py total_epochs --repeats=20 --path DATAPATH --num_workers NUM_WORKERS
+```
 
-```
+参数列表
+
+| --nproc-per-node | --num_workers | --repeats | total_epochs |
+| ---------------- | ------------- | --------- | ------------ |
+| 2                | 0             | 20        | 5            |
+| 2                | 4             | 20        | 5            |
+| 2                | 8             | 20        | 5            |
+| 4                | 0             | 20        | 5            |
+| 4                | 4             | 20        | 5            |
+| 4                | 8             | 20        | 5            |
+
+对应命令如下
+
+````
+torchrun --standalone --nnodes=1 --nproc-per-node=2 ddp_multigpu.py 5  --repeats=20 --path DATAPATH
+torchrun --standalone --nnodes=1 --nproc-per-node=2 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=4
+torchrun --standalone --nnodes=1 --nproc-per-node=2 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=8
+
 torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats=20 --path DATAPATH
-```
+torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=4
+torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=8
+````
+
+
 
 ### 4.多机多卡
 
-5 epochs 循环 20 次
+```
+python lightning_multinode.py total_epochs --repeats=20 --path DATAPATH --gpus GPUS --nnodes NNODES
+```
 
-2节点8卡和4节点16卡
+参数列表
+
+| --gpus | --nnodes | --repeats | total_epochs |
+| ------ | -------- | --------- | ------------ |
+| 2      | 2        | 20        | 5            |
+| 2      | 4        | 20        | 5            |
+| 4      | 2        | 20        | 5            |
+| 4      | 4        | 20        | 5            |
+| 8      | 2        | 20        | 5            |
+| 8      | 4        | 20        | 5            |
+
+对应命令如下
 
 ```
+python lightning_multinode.py 5 --gpus 2 --nnodes 2 --repeats 20 --path DATAPATH
 python lightning_multinode.py 5 --gpus 4 --nnodes 2 --repeats 20 --path DATAPATH
+python lightning_multinode.py 5 --gpus 8 --nnodes 2 --repeats 20 --path DATAPATH
+
+python lightning_multinode.py 5 --gpus 2 --nnodes 4 --repeats 20 --path DATAPATH
 python lightning_multinode.py 5 --gpus 4 --nnodes 4 --repeats 20 --path DATAPATH
+python lightning_multinode.py 5 --gpus 8 --nnodes 4 --repeats 20 --path DATAPATH
 ```
 
 

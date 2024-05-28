@@ -64,3 +64,7 @@ class ToyNet(nn.Module):
         x = self.flatten(x)
         logits = self.linear_relu_stack(x)
         return logits
+
+class Collate:
+    def __call__(self, x):
+        return x

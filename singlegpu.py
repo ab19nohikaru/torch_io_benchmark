@@ -7,8 +7,8 @@ import time, os, platform
 import logging
 from contextlib import nullcontext
 from torch.profiler import profile, record_function, ProfilerActivity
-from datasets_preprocess import dataset_preprocess_dict, MyDataSet
-from mytrainer import Trainer, ToyNet
+from datasets_preprocess import get_preprocessed_dataset, MyDataSet, dataset_preprocess_list
+from mytrainer import Trainer, ToyNet, Collate
 
 log_timestr = time.strftime("%Y-%m-%d_%H_%M_%S", time.localtime())
 
@@ -28,20 +28,17 @@ def get_available_devices():
             devices += [(torch.device(f"cuda:{i}"),  torch.cuda.get_device_name(i))]
     return devices
 
-logger.info(f"Available cpus: {os.cpu_count()}")
-logger.info(f"Available devices: {get_available_devices()}")
-
 def test_tensorclass_singlegpu(raw_dataset:Dataset, shuffle:bool, batch_size:int, epochs:int,
                                device, data_dir:str, with_profiler:bool, export_josn:bool,
                                num_workers:int):
 
-    dl_types = dataset_preprocess_dict.keys()
+    dl_types = dataset_preprocess_list
     for dl_index, preprocess_type in enumerate(dl_types):
         if "tensorclass" in preprocess_type:
-            collate_fn=lambda x: x
+            collate_fn=Collate()
         else:
             collate_fn = None
-        training_data = dataset_preprocess_dict[preprocess_type](raw_dataset, data_dir)
+        training_data = get_preprocessed_dataset(preprocess_type, raw_dataset, data_dir)
         dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn,
                                 num_workers=num_workers)
         #logger.info(f"{preprocess_type.capitalize()} dataloader {'random' if shuffle else 'sequential'} tranverse! time: {get_dataloader_tranverse_time(dataloader, epochs): 4.4f} s")
@@ -87,6 +84,8 @@ if __name__ == "__main__":
             raise ValueError("no available gpu")
     else:
         device = "cpu"
+    logger.info(f"Available cpus: {os.cpu_count()}")
+    logger.info(f"Available devices: {get_available_devices()}")
     logger.info(f"Using device: {device}")
     logger.info(args)
     if args.dataset == "mnist":
