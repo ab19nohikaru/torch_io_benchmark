@@ -40,4 +40,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 3. 新增数据集遍历时间和训练时间的统计测试，更新conclusion.md
 
-   
+## [v0.1.2] - 2024-5-28
+
+1. 增加脚本选项--repeats重复次数， --num_workers Dataloader进程数
+2. lambda函数改为正常函数，使得脚本适配多进程Dataloader
+3. 增加实验参数列表

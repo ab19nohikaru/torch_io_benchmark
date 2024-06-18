@@ -42,7 +42,7 @@ python singlegpu.py 5 gpu --path data/ --dataset=mnist --repeats 10 --num_worker
 python singlegpu.py 5 gpu --path data/ --dataset=mydataset --repeats 10
 ```
 
-脚本test_funcs.py，测试对比数据集不同预处理后遍历/训练时间 **epoch 取 5， 重复20次**
+脚本test_funcs.py，测试对比数据集不同预处理后遍历/训练时间 **epoch 取 5， 重复10次**
 
 测试结果以.npz格式保存在log目录
 
@@ -131,7 +131,7 @@ optional arguments:
    --num_workers NUM_WORKERS
                         Number of DataLoader workers
 example:
-  python lightning_multinode.py 5 --path data/ --gpus 8 --nnodes 3 --repeats 20
+  python lightning_multinode.py 5 --path data/ --gpus 8 --nnodes 3 --repeats 10
 ```
 
 # 实验参数
@@ -151,50 +151,58 @@ python singlegpu.py total_epochs {cpu,gpu} --path DATAPATH --dataset={mnist,myda
 
 | --dataset | --num_workers | --repeats | total_epochs |
 | --------- | ------------- | --------- | ------------ |
-| mnist     | 0             | 20        | 5            |
-| mydataset | 0             | 20        | 5            |
-| mnist     | 4             | 20        | 5            |
-| mydataset | 4             | 20        | 5            |
-| mnist     | 8             | 20        | 5            |
-| mydataset | 8             | 20        | 5            |
+| mnist     | 0             | 10        | 5            |
+| mydataset | 0             | 10        | 5            |
+| mnist     | 32            | 10        | 5            |
+| mydataset | 32            | 10        | 5            |
+| mnist     | 64            | 10        | 5            |
+| mydataset | 64            | 10        | 5            |
+| mnist     | 128           | 10        | 5            |
+| mydataset | 128           | 10        | 5            |
+| mnist     | 256           | 10        | 5            |
+| mydataset | 256           | 10        | 5            |
 
 对应命令如下
 ```
-python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 20
-python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 20
-python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 20 --num_workers=4
-python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 20 --num_workers=4
-python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 20 --num_workers=8
-python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 20 --num_workers=8
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 10
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 10
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 10 --num_workers=32
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 10 --num_workers=32
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 10 --num_workers=64
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 10 --num_workers=64
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 10 --num_workers=128
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 10 --num_workers=128
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mnist --repeats 10 --num_workers=256
+python singlegpu.py 5 gpu --path DATAPATH --dataset=mydataset --repeats 10 --num_workers=256
 ```
 
 ### 3. 单机多卡
 
 ```
-torchrun --standalone --nnodes=1 --nproc-per-node=NPROC_PER_NODE ddp_multigpu.py total_epochs --repeats=20 --path DATAPATH --num_workers NUM_WORKERS
+python lightning_multinode.py total_epochs --repeats=10 --path DATAPATH --gpus GPUS --nnodes=1 --num_workers NUM_WORKERS
 ```
 
 参数列表
 
-| --nproc-per-node | --num_workers | --repeats | total_epochs |
-| ---------------- | ------------- | --------- | ------------ |
-| 2                | 0             | 20        | 5            |
-| 2                | 4             | 20        | 5            |
-| 2                | 8             | 20        | 5            |
-| 4                | 0             | 20        | 5            |
-| 4                | 4             | 20        | 5            |
-| 4                | 8             | 20        | 5            |
+| --gpus | --num_workers | --repeats | total_epochs |
+| ------ | ------------- | --------- | ------------ |
+| 2      | 0             | 10        | 5            |
+| 4      | 0             | 10        | 5            |
+| 8      | 0             | 10        | 5            |
+| 2      | 128           | 10        | 5            |
+| 4      | 64            | 10        | 5            |
+| 8      | 32            | 10        | 5            |
 
 对应命令如下
 
 ````
-torchrun --standalone --nnodes=1 --nproc-per-node=2 ddp_multigpu.py 5  --repeats=20 --path DATAPATH
-torchrun --standalone --nnodes=1 --nproc-per-node=2 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=4
-torchrun --standalone --nnodes=1 --nproc-per-node=2 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=8
+python lightning_multinode.py 5 --gpus=2 --nnodes=1 --repeats 10 --path DATAPATH
+python lightning_multinode.py 5 --gpus=4 --nnodes=1 --repeats 10 --path DATAPATH
+python lightning_multinode.py 5 --gpus=8 --nnodes=1 --repeats 10 --path DATAPATH
 
-torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats=20 --path DATAPATH
-torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=4
-torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats=20 --path DATAPATH --num_workers=8
+python lightning_multinode.py 5 --gpus=2 --nnodes=1 --repeats 10 --path DATAPATH --num_workers=128
+python lightning_multinode.py 5 --gpus=4 --nnodes=1 --repeats 10 --path DATAPATH --num_workers=64
+python lightning_multinode.py 5 --gpus=8 --nnodes=1 --repeats 10 --path DATAPATH --num_workers=32
 ````
 
 
@@ -202,30 +210,30 @@ torchrun --standalone --nnodes=1 --nproc-per-node=4 ddp_multigpu.py 5  --repeats
 ### 4.多机多卡
 
 ```
-python lightning_multinode.py total_epochs --repeats=20 --path DATAPATH --gpus GPUS --nnodes NNODES
+python lightning_multinode.py total_epochs --repeats=10 --path DATAPATH --gpus GPUS --nnodes NNODES
 ```
 
 参数列表
 
 | --gpus | --nnodes | --repeats | total_epochs |
 | ------ | -------- | --------- | ------------ |
-| 2      | 2        | 20        | 5            |
-| 2      | 4        | 20        | 5            |
-| 4      | 2        | 20        | 5            |
-| 4      | 4        | 20        | 5            |
-| 8      | 2        | 20        | 5            |
-| 8      | 4        | 20        | 5            |
+| 2      | 2        | 10        | 5            |
+| 2      | 4        | 10        | 5            |
+| 4      | 2        | 10        | 5            |
+| 4      | 4        | 10        | 5            |
+| 8      | 2        | 10        | 5            |
+| 8      | 4        | 10        | 5            |
 
 对应命令如下
 
 ```
-python lightning_multinode.py 5 --gpus 2 --nnodes 2 --repeats 20 --path DATAPATH
-python lightning_multinode.py 5 --gpus 4 --nnodes 2 --repeats 20 --path DATAPATH
-python lightning_multinode.py 5 --gpus 8 --nnodes 2 --repeats 20 --path DATAPATH
+python lightning_multinode.py 5 --gpus 2 --nnodes 2 --repeats 10 --path DATAPATH
+python lightning_multinode.py 5 --gpus 4 --nnodes 2 --repeats 10 --path DATAPATH
+python lightning_multinode.py 5 --gpus 8 --nnodes 2 --repeats 10 --path DATAPATH
 
-python lightning_multinode.py 5 --gpus 2 --nnodes 4 --repeats 20 --path DATAPATH
-python lightning_multinode.py 5 --gpus 4 --nnodes 4 --repeats 20 --path DATAPATH
-python lightning_multinode.py 5 --gpus 8 --nnodes 4 --repeats 20 --path DATAPATH
+python lightning_multinode.py 5 --gpus 2 --nnodes 4 --repeats 10 --path DATAPATH
+python lightning_multinode.py 5 --gpus 4 --nnodes 4 --repeats 10 --path DATAPATH
+python lightning_multinode.py 5 --gpus 8 --nnodes 4 --repeats 10 --path DATAPATH
 ```
 
 
